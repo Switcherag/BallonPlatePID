@@ -1,0 +1,38 @@
+                           ____
+                       ,dP9CGG88@b,
+                     ,IP  _   Y888@@b,
+                    dIi  (_)   G8888@b
+                   dCII  (_)   G8888@@b
+                   GCCIi     ,GG8888@@@
+                   GGCCCCCCCGGG88888@@@
+                   GGGGCCCGGGG88888@@@@...
+                   Y8GGGGGG8888888@@@@P.....
+                    Y88888888888@@@@@P......
+                    `Y8888888@@@@@@@P'......
+                       `@@@@@@@@@P'.......
+                           """"........
+____________________________________________________________________
+	
+               Play with a ball following an image
+ ___________________________________________________________________
+|                                                                   |
+| This Python app is a simulation of a ball rolling on a            |
+| plate, following a certain path contained in an image. The app    |
+| demonstrates the principle of a PID response, which guides the    |
+| ball to follow the desired path.                                  |
+|                                                                   |
+| Features:                                                         |
+| - Real-time simulation with adjustable PID parameters             |
+| - Faster-than-real simulation speed for testing and optimization  |
+| - Interactive ball movement by clicking on the plate              |
+| - Image selection for changing the desired path                   |
+| - Live error graph and plot for visualizing the PID response      |
+|                                                                   |
+| How to use:                                                       |
+| - Set the PID parameters to tune the response                     |
+| - Click on the plate to move the ball and test the response       |
+| - Select an image to change the desired path                      |
+| - Observe the live error graph and plot to analyze the response   |
+|                                                                   |
+| Enjoy playing with the ball and exploring the PID response!       |
+|___________________________________________________________________|
