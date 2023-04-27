@@ -41,6 +41,15 @@ root = tk.Tk()
 root.title("Real-time Plot")
 #open fullscreen windowed mode
 root.attributes('-topmost', True)
+def on_closing():
+    print()
+    print("Gui closed")
+    print("Simulation time: ", MySimulation.Time(), "s")
+    print()
+    print("restart the kernel to run again please wait ...")
+    root.destroy()
+
+root.protocol("WM_DELETE_WINDOW", on_closing)
 
 # Define the four squares
 # create the frames and label widgets
@@ -49,14 +58,17 @@ plot2_frame = tk.Frame(root, width=400, height=400, bg="white", highlightbackgro
 button_frame = tk.Frame(root, width=400, height=200, bg="white", highlightbackground="black", highlightthickness=1)
 slider_frame = tk.Frame(root, width=200, height=200, bg="white", highlightbackground="black", highlightthickness=1)
 time_display = tk.Label(root, text="Time: 0.0 s")
-
+text_display = tk.Label(root, text="Rapid Resonse -> High Kp Low Kd \nAccurate Response (offset) -> Low Kp High Kd")
 # grid the widgets
-plot1_frame.grid(row=0, column=0, padx=20, pady=20)
-plot2_frame.grid(row=0, column=1, padx=20, pady=20)
-button_frame.grid(row=1, column=0, padx=0, pady=20)
-slider_frame.grid(row=1, column=1, padx=20, pady=20)
-time_display.place(relx=0.5, rely=0.8, anchor=tk.N)
+plot1_frame.grid(row=0, column=0, padx=20, pady=10)
+plot2_frame.grid(row=0, column=1, padx=20, pady=10)
+button_frame.grid(row=2, column=0, padx=0, pady=10)
+slider_frame.grid(row=2, column=1, padx=20, pady=10)
 
+#put time display bewteww button and slider
+time_display.grid(row=1, column=0, padx=0, pady=0)
+#put text display in the middle
+text_display.grid(row=1, column=1, padx=0, pady=0)
 
 # Define the live plots for square 2
 fig2 = plt.Figure(figsize=(5, 5), dpi=100)# Define the background image and buttons for square 4
@@ -91,7 +103,7 @@ def reset_time():
     
 # Define the buttons on square 4
 button1 = tk.Button(button_frame, text="Reset time", command=reset_time)
-button1.place(x=200, y=0)
+button1.place(x=250, y=0)
 
 real_time = True
 def Toggle_real_time():
@@ -107,7 +119,7 @@ def Toggle_real_time():
         button2.config(text="Real Time")
 
 button2 = tk.Button(button_frame, text="Real Time", command=Toggle_real_time)
-button2.place(x=200, y=50)
+button2.place(x=250, y=50)
 
 def downsample():
     global trail
@@ -128,10 +140,10 @@ def upsample():
     trail = len(upsampled_target)
 
 button3 = tk.Button(button_frame, text="Upspeed", command=downsample)
-button3.place(x=200, y=100)
+button3.place(x=250, y=100)
 
 button4 = tk.Button(button_frame, text="Downspeed", command=upsample)
-button4.place(x=200, y=150)
+button4.place(x=250, y=150)
 
 
 # Define the live plot for square 1
@@ -284,5 +296,8 @@ def update():
 #update_button = tk.Button(root, text="Update", command=update)
 #update_button.grid(row=1, column=2)
 root.after(100, update)
+
 # Start the GUI loop
 root.mainloop()
+
+

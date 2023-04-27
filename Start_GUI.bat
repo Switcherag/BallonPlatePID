@@ -5,4 +5,5 @@ powershell Get-Content "Gui2D\gui_header.txt"
 echo.
 
 env\Scripts\python.exe Gui2D/Gui2d.py
-pause
+
+START_GUI.bat
