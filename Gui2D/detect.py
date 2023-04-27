@@ -38,10 +38,11 @@ def EdgeDetect():
     # Remove alpha channel
     try:
         Irgb = Irgb[:, :, :3]
-        Igray = color.rgb2gray(Irgb)
+        
     except IndexError:
         Igray = Irgb
         pass
+    Igray = color.rgb2gray(Irgb)
     
     '''
     # display input image in grayscale
