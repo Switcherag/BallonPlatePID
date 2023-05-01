@@ -6,3 +6,5 @@ echo.
 
 env\python.exe Gui2D/Gui2d.py
 pause
+
+START_GUI.bat
