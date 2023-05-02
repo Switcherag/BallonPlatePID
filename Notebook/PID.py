@@ -1,6 +1,6 @@
 import numpy as np
 class PID:
-    def __init__(self, kp=0, ki=0, kd=0,framerate=1000):
+    def __init__(self, kp=0, ki=0, kd=0,framerate=60):
         
         self.framerate = framerate
         

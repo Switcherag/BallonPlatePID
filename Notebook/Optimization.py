@@ -9,8 +9,7 @@ class Optimization:
     #faire une Adam
     def __init__(self, MySimulation, MyPID):
 
-        self.MySimulation = MySimulation.reset()
-        self.MyPID = MyPID
+        self.MySimulation = MySimulation
         
     def random_search(self, num_iterations):
         # Random search
@@ -123,12 +122,12 @@ class Optimization:
             epsilon: A small value to avoid division by zero (default 1e-8).
 
         Returns:
-            The optimized parameter values for a, b, and c.
+            The optimized parameter values for Kp, Ki, and Kd.
         """
         # Initialize the parameters to random values
-        kp = random.uniform(0, 50)
-        ki = 0
-        kd = random.uniform(0, 50)
+        kp = random.uniform(0, 1000)
+        ki = random.uniform(0, 1000)
+        kd = random.uniform(0, 1000)
         initial_params = np.array([kp, ki, kd])
         # Initialize the first and second moment estimates to zero
         m = np.zeros_like(initial_params)
@@ -166,6 +165,7 @@ class Optimization:
         self.MySimulation.MyPID.kp = params[0]
         self.MySimulation.MyPID.ki = params[1]
         self.MySimulation.MyPID.kd = params[2]
+
         self.MySimulation.euler_integration()
         self.MySimulation.plot1D()
         return params

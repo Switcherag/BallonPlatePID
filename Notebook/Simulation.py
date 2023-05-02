@@ -19,7 +19,6 @@ class Simulation:
     def euler_integration(self, angle_init=0, pos_init=0, vel_init=0,acivate_PID=True,use_friction=False, mu=0):
         camera_timestep = 1/self.MyPID.framerate
         num_timesteps = len(self.time)-1
-        
         self.reset()
         
         acceleration = np.zeros(num_timesteps)
@@ -200,7 +199,7 @@ class Simulation:
         axs[2][1].imshow(response_time2, cmap='rainbow', aspect='auto',origin='lower',extent=[a,b,a,b], vmin=np.min(response_time2), vmax=2*np.min(response_time2))
         axs[2][2].imshow(exceeding_error2, cmap='rainbow', aspect='auto',origin='lower',extent=[a,b,a,b], vmin=np.min(exceeding_error2), vmax=target3*.1)
     
-        # Set titles in respect of the target
+         # Set titles in respect of the target
         axs[0][0].set_title("Quadratic error, target = " + str(target1))
         axs[0][1].set_title("Response time, target = " + str(target1))
         axs[0][2].set_title("Exceeding error, target = " + str(target1))
@@ -224,6 +223,51 @@ class Simulation:
         # Show the plot
         plt.show()
 
+    def heatmap_target(self,a,b,target,resolution=100):
+        
+        Kp_values = np.linspace(a, b, num=resolution)
+        Kd_values = np.linspace(a, b, num=resolution)
+        Ki_values = [0,0.1,0.5,1,5,10]
+
+        # initialisation d'un tableau pour stocker les valeurs de la fonction de coût
+        quadratic_error = np.zeros((len(Kp_values), len(Kd_values),len(Ki_values)))
+
+        # Create figure and subplots
+        fig, axs = plt.subplots(ncols=len(Ki_values),figsize=(20,4))
+        #plot each subplot in row instead of columns
+        a = a
+        b = b
+
+        # calcul des valeurs correspondantes de la fonction de coût pour chaque paire de valeurs de Kp et Kd
+        self.target = target
+        for i, Kp in enumerate(Kp_values):
+            
+            #add loading bar \r
+            print(f"iteration {i+1}/{len(Kp_values)}", end="\r")
+            for j, Kd in enumerate(Kd_values):
+                for k, Ki in enumerate(Ki_values):
+                    self.MyPID.kp = Kp
+                    self.MyPID.kd = Kd
+                    self.MyPID.ki = Ki
+                    self.euler_integration()
+                    
+                    quadratic_error[i,j,k] = self.quadratic_error()
+
+        quadratic_min = np.min(quadratic_error)
+        quadratic_max = quadratic_min*3 + 3       
+        print("Quadratic_min = ", quadratic_min)
+        # Plot heatmaps and colorbars
+        for k in range(len(Ki_values)):
+            axs[k].imshow(quadratic_error[:,:,k], cmap='rainbow', aspect='auto',origin='lower',extent=[a,b,a,b], vmin=quadratic_min, vmax=quadratic_max)            
+            axs[k].set_title("Ki = " + str(Ki_values[k]))
+            #set a title to the  figure
+            fig.suptitle("Quadratic error")
+            # label the axis on the other side while keeping the other one left
+            axs[0].set_ylabel("Kd")
+            axs[k].set_xlabel("Kp")
+         
+        # Show the plot
+        plt.show()
     def reset(self):
         self.MyBall.reset()
         self.MyPlate.reset()
