@@ -8,9 +8,9 @@ import time as tm
 import threading
 from detect import *
 
-Kp = 3
-Ki = 0
-Kd = 1
+Kp = 15
+Ki = 1
+Kd = 6
 
 
 Pingpong_Ball = Ball()
@@ -86,7 +86,7 @@ def set_Kd(event):
     MySimulation.set_Kd(Kd_slider.get())
 
 # Define the sliders and print the value when the slider is moved
-Kp_slider = tk.Scale(slider_frame, from_=0, to=10, orient=tk.HORIZONTAL, command= set_Kp, resolution=0.01, length=400, label="Kp")
+Kp_slider = tk.Scale(slider_frame, from_=0, to=20, orient=tk.HORIZONTAL, command= set_Kp, resolution=0.01, length=400, label="Kp")
 Kp_slider.set(Kp)
 Kp_slider.pack()
 
@@ -94,7 +94,7 @@ Ki_slider = tk.Scale(slider_frame, from_=0, to=10, orient=tk.HORIZONTAL, command
 Ki_slider.set(Ki)
 Ki_slider.pack()
 
-Kd_slider = tk.Scale(slider_frame, from_=0, to=10, orient=tk.HORIZONTAL, command= set_Kd, resolution=0.01, length=400, label="Kd")
+Kd_slider = tk.Scale(slider_frame, from_=0, to=20, orient=tk.HORIZONTAL, command= set_Kd, resolution=0.01, length=400, label="Kd")
 Kd_slider.set(Kd)
 Kd_slider.pack()
 

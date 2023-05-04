@@ -237,7 +237,7 @@ class Simulation:
         fig, axs = plt.subplots(len(targets)+1,len(Ki_values), figsize=(20, 20), facecolor='w', edgecolor='k')
 
         quadratic_min = 0
-        quadratic_max = 30    
+        quadratic_max = 40    
         for t, target in enumerate(targets):
             self.target = target
             for i, Ki in enumerate(Ki_values):
