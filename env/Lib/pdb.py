@@ -104,6 +104,15 @@ def find_function(funcname, filename):
                 return funcname, filename, lineno
     return None
 
+def getsourcelines(obj):
+    lines, lineno = inspect.findsource(obj)
+    if inspect.isframe(obj) and obj.f_globals is obj.f_locals:
+        # must be a module frame: do not try to cut a block out of it
+        return lines, 1
+    elif inspect.ismodule(obj):
+        return lines, 1
+    return inspect.getblock(lines[lineno:]), lineno+1
+
 def lasti2lineno(code, lasti):
     linestarts = list(dis.findlinestarts(code))
     linestarts.reverse()
@@ -375,7 +384,8 @@ class Pdb(bdb.Bdb, cmd.Cmd):
                 sys.stdin = save_stdin
                 sys.displayhook = save_displayhook
         except:
-            self._error_exc()
+            exc_info = sys.exc_info()[:2]
+            self.error(traceback.format_exception_only(*exc_info)[-1].strip())
 
     def precmd(self, line):
         """Handle alias expansion and ';;' separator."""
@@ -742,8 +752,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         """
         # this method should be callable before starting debugging, so default
         # to "no globals" if there is no current frame
-        frame = getattr(self, 'curframe', None)
-        globs = frame.f_globals if frame else None
+        globs = self.curframe.f_globals if hasattr(self, 'curframe') else None
         line = linecache.getline(filename, lineno, globs)
         if not line:
             self.message('End of file')
@@ -884,7 +893,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
             except ValueError:
                 err = "Invalid line number (%s)" % arg
             else:
-                bplist = self.get_breaks(filename, lineno)[:]
+                bplist = self.get_breaks(filename, lineno)
                 err = self.clear_break(filename, lineno)
             if err:
                 self.error(err)
@@ -1017,11 +1026,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         if arg:
             import shlex
             argv0 = sys.argv[0:1]
-            try:
-                sys.argv = shlex.split(arg)
-            except ValueError as e:
-                self.error('Cannot run %s: %s' % (arg, e))
-                return
+            sys.argv = shlex.split(arg)
             sys.argv[:0] = argv0
         # this is caught in the main debugger loop
         raise Restart
@@ -1098,7 +1103,8 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         try:
             sys.call_tracing(p.run, (arg, globals, locals))
         except Exception:
-            self._error_exc()
+            exc_info = sys.exc_info()[:2]
+            self.error(traceback.format_exception_only(*exc_info)[-1].strip())
         self.message("LEAVING RECURSIVE DEBUGGER")
         sys.settrace(self.trace_dispatch)
         self.lastcmd = p.lastcmd
@@ -1156,7 +1162,8 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         try:
             return eval(arg, self.curframe.f_globals, self.curframe_locals)
         except:
-            self._error_exc()
+            exc_info = sys.exc_info()[:2]
+            self.error(traceback.format_exception_only(*exc_info)[-1].strip())
             raise
 
     def _getval_except(self, arg, frame=None):
@@ -1170,31 +1177,23 @@ class Pdb(bdb.Bdb, cmd.Cmd):
             err = traceback.format_exception_only(*exc_info)[-1].strip()
             return _rstr('** raised %s **' % err)
 
-    def _error_exc(self):
-        exc_info = sys.exc_info()[:2]
-        self.error(traceback.format_exception_only(*exc_info)[-1].strip())
-
-    def _msg_val_func(self, arg, func):
-        try:
-            val = self._getval(arg)
-        except:
-            return  # _getval() has displayed the error
-        try:
-            self.message(func(val))
-        except:
-            self._error_exc()
-
     def do_p(self, arg):
         """p expression
         Print the value of the expression.
         """
-        self._msg_val_func(arg, repr)
+        try:
+            self.message(repr(self._getval(arg)))
+        except:
+            pass
 
     def do_pp(self, arg):
         """pp expression
         Pretty-print the value of the expression.
         """
-        self._msg_val_func(arg, pprint.pformat)
+        try:
+            self.message(pprint.pformat(self._getval(arg)))
+        except:
+            pass
 
     complete_print = _complete_expression
     complete_p = _complete_expression
@@ -1239,12 +1238,6 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         if last is None:
             last = first + 10
         filename = self.curframe.f_code.co_filename
-        # gh-93696: stdlib frozen modules provide a useful __file__
-        # this workaround can be removed with the closure of gh-89815
-        if filename.startswith("<frozen"):
-            tmp = self.curframe.f_globals.get("__file__")
-            if isinstance(tmp, str):
-                filename = tmp
         breaklist = self.get_file_breaks(filename)
         try:
             lines = linecache.getlines(filename, self.curframe.f_globals)
@@ -1264,7 +1257,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         filename = self.curframe.f_code.co_filename
         breaklist = self.get_file_breaks(filename)
         try:
-            lines, lineno = inspect.getsourcelines(self.curframe)
+            lines, lineno = getsourcelines(self.curframe)
         except OSError as err:
             self.error(err)
             return
@@ -1280,7 +1273,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         except:
             return
         try:
-            lines, lineno = inspect.getsourcelines(obj)
+            lines, lineno = getsourcelines(obj)
         except (OSError, TypeError) as err:
             self.error(err)
             return
@@ -1490,9 +1483,6 @@ class Pdb(bdb.Bdb, cmd.Cmd):
                 self.error('No help for %r; please do not run Python with -OO '
                            'if you need command help' % arg)
                 return
-            if command.__doc__ is None:
-                self.error('No help for %r; __doc__ string missing' % arg)
-                return
             self.message(command.__doc__.rstrip())
 
     do_h = do_help
@@ -1693,14 +1683,6 @@ def main():
     if not run_as_module and not os.path.exists(mainpyfile):
         print('Error:', mainpyfile, 'does not exist')
         sys.exit(1)
-
-    if run_as_module:
-        import runpy
-        try:
-            runpy._get_module_details(mainpyfile)
-        except Exception:
-            traceback.print_exc()
-            sys.exit(1)
 
     sys.argv[:] = args      # Hide "pdb.py" and pdb options from argument list
 

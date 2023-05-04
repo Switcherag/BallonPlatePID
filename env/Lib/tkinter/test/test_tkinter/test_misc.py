@@ -1,4 +1,3 @@
-import functools
 import unittest
 import tkinter
 from test import support
@@ -7,20 +6,6 @@ from tkinter.test.support import AbstractTkTest, AbstractDefaultRootTest
 support.requires('gui')
 
 class MiscTest(AbstractTkTest, unittest.TestCase):
-
-    def test_all(self):
-        self.assertIn("Widget", tkinter.__all__)
-        # Check that variables from tkinter.constants are also in tkinter.__all__
-        self.assertIn("CASCADE", tkinter.__all__)
-        self.assertIsNotNone(tkinter.CASCADE)
-        # Check that sys, re, and constants are not in tkinter.__all__
-        self.assertNotIn("re", tkinter.__all__)
-        self.assertNotIn("sys", tkinter.__all__)
-        self.assertNotIn("constants", tkinter.__all__)
-        # Check that an underscored functions is not in tkinter.__all__
-        self.assertNotIn("_tkerror", tkinter.__all__)
-        # Check that wantobjects is not in tkinter.__all__
-        self.assertNotIn("wantobjects", tkinter.__all__)
 
     def test_repr(self):
         t = tkinter.Toplevel(self.root, name='top')
@@ -97,12 +82,6 @@ class MiscTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(count, 53)
         with self.assertRaises(tkinter.TclError):
             root.tk.call(script)
-
-        # Call with a callable class
-        count = 0
-        timer1 = root.after(0, functools.partial(callback, 42, 11))
-        root.update()  # Process all pending events.
-        self.assertEqual(count, 53)
 
     def test_after_idle(self):
         root = self.root
@@ -200,13 +179,6 @@ class MiscTest(AbstractTkTest, unittest.TestCase):
             root.clipboard_get()
 
     def test_winfo_rgb(self):
-
-        def assertApprox(col1, col2):
-            # A small amount of flexibility is required (bpo-45496)
-            # 33 is ~0.05% of 65535, which is a reasonable margin
-            for col1_channel, col2_channel in zip(col1, col2):
-                self.assertAlmostEqual(col1_channel, col2_channel, delta=33)
-
         root = self.root
         rgb = root.winfo_rgb
 
@@ -216,9 +188,9 @@ class MiscTest(AbstractTkTest, unittest.TestCase):
         # #RGB - extends each 4-bit hex value to be 16-bit.
         self.assertEqual(rgb('#F0F'), (0xFFFF, 0x0000, 0xFFFF))
         # #RRGGBB - extends each 8-bit hex value to be 16-bit.
-        assertApprox(rgb('#4a3c8c'), (0x4a4a, 0x3c3c, 0x8c8c))
+        self.assertEqual(rgb('#4a3c8c'), (0x4a4a, 0x3c3c, 0x8c8c))
         # #RRRRGGGGBBBB
-        assertApprox(rgb('#dede14143939'), (0xdede, 0x1414, 0x3939))
+        self.assertEqual(rgb('#dede14143939'), (0xdede, 0x1414, 0x3939))
         # Invalid string.
         with self.assertRaises(tkinter.TclError):
             rgb('#123456789a')
@@ -353,5 +325,7 @@ class DefaultRootTest(AbstractDefaultRootTest, unittest.TestCase):
         self.assertRaises(RuntimeError, tkinter.mainloop)
 
 
+tests_gui = (MiscTest, DefaultRootTest)
+
 if __name__ == "__main__":
-    unittest.main()
+    support.run_unittest(*tests_gui)

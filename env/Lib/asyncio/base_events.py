@@ -49,7 +49,7 @@ from . import trsock
 from .log import logger
 
 
-__all__ = 'BaseEventLoop','Server',
+__all__ = 'BaseEventLoop',
 
 
 # Minimum number of _scheduled timer handles before cleanup of
@@ -202,11 +202,6 @@ else:
         pass
 
 
-def _check_ssl_socket(sock):
-    if ssl is not None and isinstance(sock, ssl.SSLSocket):
-        raise TypeError("Socket cannot be of type SSLSocket")
-
-
 class _SendfileFallbackProtocol(protocols.Protocol):
     def __init__(self, transp):
         if not isinstance(transp, transports._FlowControlMixin):
@@ -355,7 +350,7 @@ class Server(events.AbstractServer):
         self._start_serving()
         # Skip one loop iteration so that all 'loop.add_reader'
         # go through.
-        await tasks.sleep(0)
+        await tasks.sleep(0, loop=self._loop)
 
     async def serve_forever(self):
         if self._serving_forever_fut is not None:
@@ -415,8 +410,6 @@ class BaseEventLoop(events.AbstractEventLoop):
         self._asyncgens = weakref.WeakSet()
         # Set to True when `loop.shutdown_asyncgens` is called.
         self._asyncgens_shutdown_called = False
-        # Set to True when `loop.shutdown_default_executor` is called.
-        self._executor_shutdown_called = False
 
     def __repr__(self):
         return (
@@ -514,10 +507,6 @@ class BaseEventLoop(events.AbstractEventLoop):
         if self._closed:
             raise RuntimeError('Event loop is closed')
 
-    def _check_default_executor(self):
-        if self._executor_shutdown_called:
-            raise RuntimeError('Executor shutdown has been called')
-
     def _asyncgen_finalizer_hook(self, agen):
         self._asyncgens.discard(agen)
         if not self.is_closed():
@@ -546,7 +535,8 @@ class BaseEventLoop(events.AbstractEventLoop):
 
         results = await tasks.gather(
             *[ag.aclose() for ag in closing_agens],
-            return_exceptions=True)
+            return_exceptions=True,
+            loop=self)
 
         for result, agen in zip(results, closing_agens):
             if isinstance(result, Exception):
@@ -556,28 +546,6 @@ class BaseEventLoop(events.AbstractEventLoop):
                     'exception': result,
                     'asyncgen': agen
                 })
-
-    async def shutdown_default_executor(self):
-        """Schedule the shutdown of the default executor."""
-        self._executor_shutdown_called = True
-        if self._default_executor is None:
-            return
-        future = self.create_future()
-        thread = threading.Thread(target=self._do_shutdown, args=(future,))
-        thread.start()
-        try:
-            await future
-        finally:
-            thread.join()
-
-    def _do_shutdown(self, future):
-        try:
-            self._default_executor.shutdown(wait=True)
-            if not self.is_closed():
-                self.call_soon_threadsafe(future.set_result, None)
-        except Exception as ex:
-            if not self.is_closed():
-                self.call_soon_threadsafe(future.set_exception, ex)
 
     def _check_running(self):
         if self.is_running():
@@ -591,13 +559,12 @@ class BaseEventLoop(events.AbstractEventLoop):
         self._check_closed()
         self._check_running()
         self._set_coroutine_origin_tracking(self._debug)
+        self._thread_id = threading.get_ident()
 
         old_agen_hooks = sys.get_asyncgen_hooks()
+        sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
+                               finalizer=self._asyncgen_finalizer_hook)
         try:
-            self._thread_id = threading.get_ident()
-            sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
-                                   finalizer=self._asyncgen_finalizer_hook)
-
             events._set_running_loop(self)
             while True:
                 self._run_once()
@@ -673,7 +640,6 @@ class BaseEventLoop(events.AbstractEventLoop):
         self._closed = True
         self._ready.clear()
         self._scheduled.clear()
-        self._executor_shutdown_called = True
         executor = self._default_executor
         if executor is not None:
             self._default_executor = None
@@ -810,12 +776,8 @@ class BaseEventLoop(events.AbstractEventLoop):
             self._check_callback(func, 'run_in_executor')
         if executor is None:
             executor = self._default_executor
-            # Only check when the default executor is being used
-            self._check_default_executor()
             if executor is None:
-                executor = concurrent.futures.ThreadPoolExecutor(
-                    thread_name_prefix='asyncio'
-                )
+                executor = concurrent.futures.ThreadPoolExecutor()
                 self._default_executor = executor
         return futures.wrap_future(
             executor.submit(func, *args), loop=self)
@@ -871,7 +833,6 @@ class BaseEventLoop(events.AbstractEventLoop):
                             *, fallback=True):
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        _check_ssl_socket(sock)
         self._check_sendfile_params(sock, file, offset, count)
         try:
             return await self._sock_sendfile_native(sock, file,
@@ -887,7 +848,7 @@ class BaseEventLoop(events.AbstractEventLoop):
         # non-mmap files even if sendfile is supported by OS
         raise exceptions.SendfileNotAvailableError(
             f"syscall sendfile is not available for socket {sock!r} "
-            f"and file {file!r} combination")
+            "and file {file!r} combination")
 
     async def _sock_sendfile_fallback(self, sock, file, offset, count):
         if offset:
@@ -946,10 +907,7 @@ class BaseEventLoop(events.AbstractEventLoop):
             sock = socket.socket(family=family, type=type_, proto=proto)
             sock.setblocking(False)
             if local_addr_infos is not None:
-                for lfamily, _, _, _, laddr in local_addr_infos:
-                    # skip local addresses of different family
-                    if lfamily != family:
-                        continue
+                for _, _, _, _, laddr in local_addr_infos:
                     try:
                         sock.bind(laddr)
                         break
@@ -962,10 +920,7 @@ class BaseEventLoop(events.AbstractEventLoop):
                         exc = OSError(exc.errno, msg)
                         my_exceptions.append(exc)
                 else:  # all bind attempts failed
-                    if my_exceptions:
-                        raise my_exceptions.pop()
-                    else:
-                        raise OSError(f"no matching local address with {family=} found")
+                    raise my_exceptions.pop()
             await self.sock_connect(sock, address)
             return sock
         except OSError as exc:
@@ -977,8 +932,6 @@ class BaseEventLoop(events.AbstractEventLoop):
             if sock is not None:
                 sock.close()
             raise
-        finally:
-            exceptions = my_exceptions = None
 
     async def create_connection(
             self, protocol_factory, host=None, port=None,
@@ -989,7 +942,7 @@ class BaseEventLoop(events.AbstractEventLoop):
             happy_eyeballs_delay=None, interleave=None):
         """Connect to a TCP server.
 
-        Create a streaming transport connection to a given internet host and
+        Create a streaming transport connection to a given Internet host and
         port: socket family AF_INET or socket.AF_INET6 depending on host (or
         family if specified), socket type SOCK_STREAM. protocol_factory must be
         a callable returning a protocol instance.
@@ -1020,9 +973,6 @@ class BaseEventLoop(events.AbstractEventLoop):
         if ssl_handshake_timeout is not None and not ssl:
             raise ValueError(
                 'ssl_handshake_timeout is only meaningful with ssl')
-
-        if sock is not None:
-            _check_ssl_socket(sock)
 
         if happy_eyeballs_delay is not None and interleave is None:
             # If using happy eyeballs, default to interleave addresses by family
@@ -1071,20 +1021,17 @@ class BaseEventLoop(events.AbstractEventLoop):
 
             if sock is None:
                 exceptions = [exc for sub in exceptions for exc in sub]
-                try:
-                    if len(exceptions) == 1:
+                if len(exceptions) == 1:
+                    raise exceptions[0]
+                else:
+                    # If they all have the same str(), raise one.
+                    model = str(exceptions[0])
+                    if all(str(exc) == model for exc in exceptions):
                         raise exceptions[0]
-                    else:
-                        # If they all have the same str(), raise one.
-                        model = str(exceptions[0])
-                        if all(str(exc) == model for exc in exceptions):
-                            raise exceptions[0]
-                        # Raise a combined exception so the user can see all
-                        # the various error messages.
-                        raise OSError('Multiple exceptions: {}'.format(
-                            ', '.join(str(exc) for exc in exceptions)))
-                finally:
-                    exceptions = None
+                    # Raise a combined exception so the user can see all
+                    # the various error messages.
+                    raise OSError('Multiple exceptions: {}'.format(
+                        ', '.join(str(exc) for exc in exceptions)))
 
         else:
             if sock is None:
@@ -1460,9 +1407,6 @@ class BaseEventLoop(events.AbstractEventLoop):
             raise ValueError(
                 'ssl_handshake_timeout is only meaningful with ssl')
 
-        if sock is not None:
-            _check_ssl_socket(sock)
-
         if host is not None or port is not None:
             if sock is not None:
                 raise ValueError(
@@ -1482,7 +1426,7 @@ class BaseEventLoop(events.AbstractEventLoop):
             fs = [self._create_server_getaddrinfo(host, port, family=family,
                                                   flags=flags)
                   for host in hosts]
-            infos = await tasks.gather(*fs)
+            infos = await tasks.gather(*fs, loop=self)
             infos = set(itertools.chain.from_iterable(infos))
 
             completed = False
@@ -1540,7 +1484,7 @@ class BaseEventLoop(events.AbstractEventLoop):
             server._start_serving()
             # Skip one loop iteration so that all 'loop.add_reader'
             # go through.
-            await tasks.sleep(0)
+            await tasks.sleep(0, loop=self)
 
         if self._debug:
             logger.info("%r is serving", server)
@@ -1550,15 +1494,20 @@ class BaseEventLoop(events.AbstractEventLoop):
             self, protocol_factory, sock,
             *, ssl=None,
             ssl_handshake_timeout=None):
+        """Handle an accepted connection.
+
+        This is used by servers that accept connections outside of
+        asyncio but that use asyncio to handle connections.
+
+        This method is a coroutine.  When completed, the coroutine
+        returns a (transport, protocol) pair.
+        """
         if sock.type != socket.SOCK_STREAM:
             raise ValueError(f'A Stream Socket was expected, got {sock!r}')
 
         if ssl_handshake_timeout is not None and not ssl:
             raise ValueError(
                 'ssl_handshake_timeout is only meaningful with ssl')
-
-        if sock is not None:
-            _check_ssl_socket(sock)
 
         transport, protocol = await self._create_connection_transport(
             sock, protocol_factory, ssl, '', server_side=True,
@@ -1815,9 +1764,12 @@ class BaseEventLoop(events.AbstractEventLoop):
                                  exc_info=True)
 
     def _add_callback(self, handle):
-        """Add a Handle to _ready."""
-        if not handle._cancelled:
-            self._ready.append(handle)
+        """Add a Handle to _scheduled (TimerHandle) or _ready."""
+        assert isinstance(handle, events.Handle), 'A Handle is required here'
+        if handle._cancelled:
+            return
+        assert not isinstance(handle, events.TimerHandle)
+        self._ready.append(handle)
 
     def _add_callback_signalsafe(self, handle):
         """Like _add_callback() but called from a signal handler."""
@@ -1870,8 +1822,6 @@ class BaseEventLoop(events.AbstractEventLoop):
 
         event_list = self._selector.select(timeout)
         self._process_events(event_list)
-        # Needed to break cycles when an exception occurs.
-        event_list = None
 
         # Handle 'later' callbacks that are ready.
         end_time = self.time() + self._clock_resolution

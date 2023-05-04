@@ -8,8 +8,7 @@ extern "C" {
 #  error "this header requires Py_BUILD_CORE define"
 #endif
 
-/* Forward declaration */
-struct _is;
+#include "pystate.h"   /* PyInterpreterState */
 
 /* Write the Python traceback into the file 'fd'. For example:
 
@@ -51,13 +50,13 @@ PyAPI_FUNC(void) _Py_DumpTraceback(
    _PyGILState_GetInterpreterStateUnsafe() in last resort.
 
    It is better to pass NULL to interp and current_tstate, the function tries
-   different options to retrieve this information.
+   different options to retrieve these informations.
 
    This function is signal safe. */
 
 PyAPI_FUNC(const char*) _Py_DumpTracebackThreads(
     int fd,
-    struct _is *interp,
+    PyInterpreterState *interp,
     PyThreadState *current_tstate);
 
 /* Write a Unicode object into the file descriptor fd. Encode the string to
@@ -74,18 +73,22 @@ PyAPI_FUNC(void) _Py_DumpASCII(int fd, PyObject *text);
    This function is signal safe. */
 PyAPI_FUNC(void) _Py_DumpDecimal(
     int fd,
-    size_t value);
+    unsigned long value);
 
-/* Format an integer as hexadecimal with width digits into fd file descriptor.
-   The function is signal safe. */
+/* Format an integer as hexadecimal into the file descriptor fd with at least
+   width digits.
+
+   The maximum width is sizeof(unsigned long)*2 digits.
+
+   This function is signal safe. */
 PyAPI_FUNC(void) _Py_DumpHexadecimal(
     int fd,
-    uintptr_t value,
+    unsigned long value,
     Py_ssize_t width);
 
 PyAPI_FUNC(PyObject*) _PyTraceBack_FromFrame(
     PyObject *tb_next,
-    PyFrameObject *frame);
+    struct _frame *frame);
 
 #ifdef __cplusplus
 }

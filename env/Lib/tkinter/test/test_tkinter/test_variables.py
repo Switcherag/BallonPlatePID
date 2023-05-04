@@ -1,11 +1,9 @@
 import unittest
-from test import support
-
 import gc
 import tkinter
+from test.support import ALWAYS_EQ
 from tkinter import (Variable, StringVar, IntVar, DoubleVar, BooleanVar, Tcl,
                      TclError)
-from test.support import ALWAYS_EQ
 from tkinter.test.support import AbstractDefaultRootTest
 
 
@@ -48,7 +46,6 @@ class TestVariable(TestBase):
         v = Variable(self.root, "sample string", "varname")
         self.assertTrue(self.info_exists("varname"))
         del v
-        support.gc_collect()  # For PyPy or other GCs.
         self.assertFalse(self.info_exists("varname"))
 
     def test_dont_unset_not_existing(self):
@@ -56,18 +53,15 @@ class TestVariable(TestBase):
         v1 = Variable(self.root, name="name")
         v2 = Variable(self.root, name="name")
         del v1
-        support.gc_collect()  # For PyPy or other GCs.
         self.assertFalse(self.info_exists("name"))
         # shouldn't raise exception
         del v2
-        support.gc_collect()  # For PyPy or other GCs.
         self.assertFalse(self.info_exists("name"))
 
     def test_equality(self):
         # values doesn't matter, only class and name are checked
         v1 = Variable(self.root, name="abc")
         v2 = Variable(self.root, name="abc")
-        self.assertIsNot(v1, v2)
         self.assertEqual(v1, v2)
 
         v3 = Variable(self.root, name="cba")
@@ -338,5 +332,10 @@ class DefaultRootTest(AbstractDefaultRootTest, unittest.TestCase):
         self.assertRaises(RuntimeError, Variable)
 
 
+tests_gui = (TestVariable, TestStringVar, TestIntVar,
+             TestDoubleVar, TestBooleanVar, DefaultRootTest)
+
+
 if __name__ == "__main__":
-    unittest.main()
+    from test.support import run_unittest
+    run_unittest(*tests_gui)

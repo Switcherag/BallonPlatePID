@@ -9,7 +9,6 @@ import re
 import importlib.util
 import string
 import sys
-import distutils
 from distutils.errors import DistutilsPlatformError
 from distutils.dep_util import newer
 from distutils.spawn import spawn
@@ -80,8 +79,7 @@ def get_host_platform():
             machine += ".%s" % bitness[sys.maxsize]
         # fall through to standard osname-release-machine representation
     elif osname[:3] == "aix":
-        from _aix_support import aix_platform
-        return aix_platform()
+        return "%s-%s.%s" % (osname, version, release)
     elif osname[:6] == "cygwin":
         osname = "cygwin"
         rel_re = re.compile (r'[\d.]+', re.ASCII)
@@ -420,10 +418,8 @@ byte_compile(files, optimize=%r, force=%r,
              direct=1)
 """ % (optimize, force, prefix, base_dir, verbose))
 
-        msg = distutils._DEPRECATION_MESSAGE
         cmd = [sys.executable]
         cmd.extend(subprocess._optim_args_from_interpreter_flags())
-        cmd.append(f'-Wignore:{msg}:DeprecationWarning')
         cmd.append(script_name)
         spawn(cmd, dry_run=dry_run)
         execute(os.remove, (script_name,), "removing %s" % script_name,

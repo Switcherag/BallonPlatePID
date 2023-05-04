@@ -22,6 +22,11 @@ footer = """
    remaining private.*/
 #define EXCEPT_HANDLER 257
 
+
+enum cmp_op {PyCmp_LT=Py_LT, PyCmp_LE=Py_LE, PyCmp_EQ=Py_EQ, PyCmp_NE=Py_NE,
+                PyCmp_GT=Py_GT, PyCmp_GE=Py_GE, PyCmp_IN, PyCmp_NOT_IN,
+                PyCmp_IS, PyCmp_IS_NOT, PyCmp_EXC_MATCH, PyCmp_BAD};
+
 #define HAS_ARG(op) ((op) >= HAVE_ARGUMENT)
 
 #ifdef __cplusplus
@@ -30,18 +35,6 @@ footer = """
 #endif /* !Py_OPCODE_H */
 """
 
-UINT32_MASK = (1<<32)-1
-
-def write_int_array_from_ops(name, ops, out):
-    bits = 0
-    for op in ops:
-        bits |= 1<<op
-    out.write(f"static uint32_t {name}[8] = {{\n")
-    for i in range(8):
-        out.write(f"    {bits & UINT32_MASK}U,\n")
-        bits >>= 32
-    assert bits == 0
-    out.write(f"}};\n")
 
 def main(opcode_py, outfile='Include/opcode.h'):
     opcode = {}
@@ -53,8 +46,6 @@ def main(opcode_py, outfile='Include/opcode.h'):
         code = fp.read()
     exec(code, opcode)
     opmap = opcode['opmap']
-    hasjrel = opcode['hasjrel']
-    hasjabs = opcode['hasjabs']
     with open(outfile, 'w') as fobj:
         fobj.write(header)
         for name in opcode['opname']:
@@ -63,12 +54,7 @@ def main(opcode_py, outfile='Include/opcode.h'):
             if name == 'POP_EXCEPT': # Special entry for HAVE_ARGUMENT
                 fobj.write("#define %-23s %3d\n" %
                             ('HAVE_ARGUMENT', opcode['HAVE_ARGUMENT']))
-        fobj.write("#ifdef NEED_OPCODE_JUMP_TABLES\n")
-        write_int_array_from_ops("_PyOpcode_RelativeJump", opcode['hasjrel'], fobj)
-        write_int_array_from_ops("_PyOpcode_Jump", opcode['hasjrel'] + opcode['hasjabs'], fobj)
-        fobj.write("#endif /* OPCODE_TABLES */\n")
         fobj.write(footer)
-
 
     print("%s regenerated from %s" % (outfile, opcode_py))
 

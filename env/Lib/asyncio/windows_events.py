@@ -1,10 +1,5 @@
 """Selector and proactor event loops for Windows."""
 
-import sys
-
-if sys.platform != 'win32':  # pragma: no cover
-    raise ImportError('win32 only')
-
 import _overlapped
 import _winapi
 import errno
@@ -80,9 +75,9 @@ class _OverlappedFuture(futures.Future):
             self._loop.call_exception_handler(context)
         self._ov = None
 
-    def cancel(self, msg=None):
+    def cancel(self):
         self._cancel_overlapped()
-        return super().cancel(msg=msg)
+        return super().cancel()
 
     def set_exception(self, exception):
         super().set_exception(exception)
@@ -154,9 +149,9 @@ class _BaseWaitHandleFuture(futures.Future):
 
         self._unregister_wait_cb(None)
 
-    def cancel(self, msg=None):
+    def cancel(self):
         self._unregister_wait()
-        return super().cancel(msg=msg)
+        return super().cancel()
 
     def set_exception(self, exception):
         self._unregister_wait()
@@ -366,10 +361,6 @@ class ProactorEventLoop(proactor_events.BaseProactorEventLoop):
                     return
 
                 f = self._proactor.accept_pipe(pipe)
-            except BrokenPipeError:
-                if pipe and pipe.fileno() != -1:
-                    pipe.close()
-                self.call_soon(loop_accept_pipe)
             except OSError as exc:
                 if pipe and pipe.fileno() != -1:
                     self.call_exception_handler({
@@ -381,7 +372,6 @@ class ProactorEventLoop(proactor_events.BaseProactorEventLoop):
                 elif self._debug:
                     logger.warning("Accept pipe failed on pipe %r",
                                    pipe, exc_info=True)
-                self.call_soon(loop_accept_pipe)
             except exceptions.CancelledError:
                 if pipe:
                     pipe.close()
@@ -444,11 +434,7 @@ class IocpProactor:
             self._poll(timeout)
         tmp = self._results
         self._results = []
-        try:
-            return tmp
-        finally:
-            # Needed to break cycles when an exception occurs.
-            tmp = None
+        return tmp
 
     def _result(self, value):
         fut = self._loop.create_future()
@@ -830,8 +816,6 @@ class IocpProactor:
                 else:
                     f.set_result(value)
                     self._results.append(f)
-                finally:
-                    f = None
 
         # Remove unregistered futures
         for ov in self._unregistered:

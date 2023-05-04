@@ -21,20 +21,13 @@
 # Compare the demo tixwidgets.py to the original Tcl program and you will
 # appreciate the advantages.
 #
-# NOTE: This module is deprecated since Python 3.6.
 
 import os
-import warnings
 import tkinter
 from tkinter import *
 from tkinter import _cnfmerge
 
-warnings.warn(
-    'The Tix Tk extension is unmaintained, and the tkinter.tix wrapper module'
-    ' is deprecated in favor of tkinter.ttk',
-    DeprecationWarning,
-    stacklevel=2,
-    )
+import _tkinter # If this fails your Python may not be configured for Tk
 
 # Some more constants (for consistency with Tkinter)
 WINDOW = 'window'
@@ -310,7 +303,7 @@ class TixWidget(tkinter.Widget):
                 del cnf[k]
 
         self.widgetName = widgetName
-        self._setup(master, cnf)
+        Widget._setup(self, master, cnf)
 
         # If widgetName is None, this is a dummy creation call where the
         # corresponding Tk widget has already been created by Tix
@@ -393,7 +386,7 @@ class TixWidget(tkinter.Widget):
             self.tk.call(name, 'configure', '-' + option, value)
     # These are missing from Tkinter
     def image_create(self, imgtype, cnf={}, master=None, **kw):
-        if master is None:
+        if not master:
             master = self
         if kw and cnf: cnf = _cnfmerge((cnf, kw))
         elif kw: cnf = kw
@@ -474,7 +467,7 @@ class DisplayStyle:
     (multiple) Display Items"""
 
     def __init__(self, itemtype, cnf={}, *, master=None, **kw):
-        if master is None:
+        if not master:
             if 'refwindow' in kw:
                 master = kw['refwindow']
             elif 'refwindow' in cnf:
@@ -869,7 +862,7 @@ class HList(TixWidget, XView, YView):
         return self.tk.call(self._w, 'add', entry, *self._options(cnf, kw))
 
     def add_child(self, parent=None, cnf={}, **kw):
-        if parent is None:
+        if not parent:
             parent = ''
         return self.tk.call(
                      self._w, 'addchild', parent, *self._options(cnf, kw))

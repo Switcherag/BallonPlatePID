@@ -14,6 +14,8 @@ for older versions in distutils.msvc9compiler and distutils.msvccompiler.
 # ported to VS 2015 by Steve Dower
 
 import os
+import shutil
+import stat
 import subprocess
 import winreg
 
@@ -63,6 +65,8 @@ def _find_vc2017():
     If vswhere.exe is not available, by definition, VS 2017 is not
     installed.
     """
+    import json
+
     root = os.environ.get("ProgramFiles(x86)") or os.environ.get("ProgramFiles")
     if not root:
         return None, None

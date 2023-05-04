@@ -5,7 +5,7 @@ Remote python server.
 Execute Python commands remotely and send output back.
 
 WARNING: This version has a gaping security hole -- it accepts requests
-from any host on the internet!
+from any host on the Internet!
 """
 
 import sys
@@ -29,7 +29,7 @@ def main():
         with conn:
             print('connection from', remotehost, remoteport)
             request = b''
-            while True:
+            while 1:
                 data = conn.recv(BUFSIZE)
                 if not data:
                     break

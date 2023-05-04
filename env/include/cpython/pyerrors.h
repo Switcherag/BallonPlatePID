@@ -2,6 +2,10 @@
 #  error "this header file must not be included directly"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Error objects */
 
 /* PyException_HEAD defines the initial segment of every exception class. */
@@ -20,8 +24,6 @@ typedef struct {
     PyObject *filename;
     PyObject *lineno;
     PyObject *offset;
-    PyObject *end_lineno;
-    PyObject *end_offset;
     PyObject *text;
     PyObject *print_file_and_line;
 } PySyntaxErrorObject;
@@ -64,17 +66,6 @@ typedef struct {
     PyObject *value;
 } PyStopIterationObject;
 
-typedef struct {
-    PyException_HEAD
-    PyObject *name;
-} PyNameErrorObject;
-
-typedef struct {
-    PyException_HEAD
-    PyObject *obj;
-    PyObject *name;
-} PyAttributeErrorObject;
-
 /* Compatibility typedefs */
 typedef PyOSErrorObject PyEnvironmentErrorObject;
 #ifdef MS_WINDOWS
@@ -84,12 +75,15 @@ typedef PyOSErrorObject PyWindowsErrorObject;
 /* Error handling definitions */
 
 PyAPI_FUNC(void) _PyErr_SetKeyError(PyObject *);
-PyAPI_FUNC(_PyErr_StackItem*) _PyErr_GetTopmostException(PyThreadState *tstate);
-PyAPI_FUNC(void) _PyErr_GetExcInfo(PyThreadState *, PyObject **, PyObject **, PyObject **);
+_PyErr_StackItem *_PyErr_GetTopmostException(PyThreadState *tstate);
 
 /* Context manipulation (PEP 3134) */
 
 PyAPI_FUNC(void) _PyErr_ChainExceptions(PyObject *, PyObject *, PyObject *);
+
+/* */
+
+#define PyExceptionClass_Name(x)  (((PyTypeObject*)(x))->tp_name)
 
 /* Convenience functions */
 
@@ -150,13 +144,6 @@ PyAPI_FUNC(void) PyErr_SyntaxLocationObject(
     int lineno,
     int col_offset);
 
-PyAPI_FUNC(void) PyErr_RangedSyntaxLocationObject(
-    PyObject *filename,
-    int lineno,
-    int col_offset,
-    int end_lineno,
-    int end_col_offset);
-
 PyAPI_FUNC(PyObject *) PyErr_ProgramTextObject(
     PyObject *filename,
     int lineno);
@@ -185,12 +172,6 @@ Py_DEPRECATED(3.3) PyAPI_FUNC(PyObject *) PyUnicodeTranslateError_Create(
     Py_ssize_t end,
     const char *reason          /* UTF-8 encoded string */
     );
-
-PyAPI_FUNC(PyObject *) _PyErr_ProgramDecodedTextObject(
-    PyObject *filename,
-    int lineno,
-    const char* encoding);
-
 PyAPI_FUNC(PyObject *) _PyUnicodeTranslateError_Create(
     PyObject *object,
     Py_ssize_t start,
@@ -202,13 +183,6 @@ PyAPI_FUNC(void) _PyErr_WriteUnraisableMsg(
     const char *err_msg,
     PyObject *obj);
 
-PyAPI_FUNC(void) _Py_NO_RETURN _Py_FatalErrorFunc(
-    const char *func,
-    const char *message);
-
-PyAPI_FUNC(void) _Py_NO_RETURN _Py_FatalErrorFormat(
-    const char *func,
-    const char *format,
-    ...);
-
-#define Py_FatalError(message) _Py_FatalErrorFunc(__func__, message)
+#ifdef __cplusplus
+}
+#endif

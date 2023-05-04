@@ -7,7 +7,6 @@ import collections
 import logging
 import threading
 import time
-import types
 
 FIRST_COMPLETED = 'FIRST_COMPLETED'
 FIRST_EXCEPTION = 'FIRST_EXCEPTION'
@@ -284,14 +283,13 @@ def wait(fs, timeout=None, return_when=ALL_COMPLETED):
         A named 2-tuple of sets. The first set, named 'done', contains the
         futures that completed (is finished or cancelled) before the wait
         completed. The second set, named 'not_done', contains uncompleted
-        futures. Duplicate futures given to *fs* are removed and will be 
-        returned only once.
+        futures.
     """
-    fs = set(fs)
     with _AcquireFutures(fs):
-        done = {f for f in fs
-                   if f._state in [CANCELLED_AND_NOTIFIED, FINISHED]}
-        not_done = fs - done
+        done = set(f for f in fs
+                   if f._state in [CANCELLED_AND_NOTIFIED, FINISHED])
+        not_done = set(fs) - done
+
         if (return_when == FIRST_COMPLETED) and done:
             return DoneAndNotDoneFutures(done, not_done)
         elif (return_when == FIRST_EXCEPTION) and done:
@@ -310,19 +308,7 @@ def wait(fs, timeout=None, return_when=ALL_COMPLETED):
             f._waiters.remove(waiter)
 
     done.update(waiter.finished_futures)
-    return DoneAndNotDoneFutures(done, fs - done)
-
-
-def _result_or_cancel(fut, timeout=None):
-    try:
-        try:
-            return fut.result(timeout)
-        finally:
-            fut.cancel()
-    finally:
-        # Break a reference cycle with the exception in self._exception
-        del fut
-
+    return DoneAndNotDoneFutures(done, set(fs) - done)
 
 class Future(object):
     """Represents the result of an asynchronous computation."""
@@ -393,7 +379,7 @@ class Future(object):
             return self._state == RUNNING
 
     def done(self):
-        """Return True if the future was cancelled or finished executing."""
+        """Return True of the future was cancelled or finished executing."""
         with self._condition:
             return self._state in [CANCELLED, CANCELLED_AND_NOTIFIED, FINISHED]
 
@@ -566,12 +552,10 @@ class Future(object):
             self._condition.notify_all()
         self._invoke_callbacks()
 
-    __class_getitem__ = classmethod(types.GenericAlias)
-
 class Executor(object):
     """This is an abstract base class for concrete asynchronous executors."""
 
-    def submit(self, fn, /, *args, **kwargs):
+    def submit(*args, **kwargs):
         """Submits a callable to be executed with the given arguments.
 
         Schedules the callable to be executed as fn(*args, **kwargs) and returns
@@ -580,7 +564,21 @@ class Executor(object):
         Returns:
             A Future representing the given call.
         """
+        if len(args) >= 2:
+            pass
+        elif not args:
+            raise TypeError("descriptor 'submit' of 'Executor' object "
+                            "needs an argument")
+        elif 'fn' in kwargs:
+            import warnings
+            warnings.warn("Passing 'fn' as keyword argument is deprecated",
+                          DeprecationWarning, stacklevel=2)
+        else:
+            raise TypeError('submit expected at least 1 positional argument, '
+                            'got %d' % (len(args)-1))
+
         raise NotImplementedError()
+    submit.__text_signature__ = '($self, fn, /, *args, **kwargs)'
 
     def map(self, fn, *iterables, timeout=None, chunksize=1):
         """Returns an iterator equivalent to map(fn, iter).
@@ -618,15 +616,15 @@ class Executor(object):
                 while fs:
                     # Careful not to keep a reference to the popped future
                     if timeout is None:
-                        yield _result_or_cancel(fs.pop())
+                        yield fs.pop().result()
                     else:
-                        yield _result_or_cancel(fs.pop(), end_time - time.monotonic())
+                        yield fs.pop().result(end_time - time.monotonic())
             finally:
                 for future in fs:
                     future.cancel()
         return result_iterator()
 
-    def shutdown(self, wait=True, *, cancel_futures=False):
+    def shutdown(self, wait=True):
         """Clean-up the resources associated with the Executor.
 
         It is safe to call this method several times. Otherwise, no other
@@ -636,9 +634,6 @@ class Executor(object):
             wait: If True then shutdown will not return until all running
                 futures have finished executing and the resources used by the
                 executor have been reclaimed.
-            cancel_futures: If True then shutdown will cancel all pending
-                futures. Futures that are completed or running will not be
-                cancelled.
         """
         pass
 

@@ -11,8 +11,6 @@
 
 from tkinter.commondialog import Dialog
 
-__all__ = ["Chooser", "askcolor"]
-
 
 class Chooser(Dialog):
     """Create a dialog for the tk_chooseColor command.

@@ -81,14 +81,8 @@ def cossin(X, p=None, q=None, separate=False,
         (``m-q`` x ``m-q``) orthogonal/unitary matrices. If ``separate=True``,
         this contains the tuple of ``(V1H, V2H)``.
 
-    References
-    ----------
-    .. [1] Brian D. Sutton. Computing the complete CS decomposition. Numer.
-           Algorithms, 50(1):33-65, 2009.
-
     Examples
     --------
-    >>> import numpy as np
     >>> from scipy.linalg import cossin
     >>> from scipy.stats import unitary_group
     >>> x = unitary_group.rvs(4)
@@ -105,6 +99,11 @@ def cossin(X, p=None, q=None, separate=False,
     []
     >>> np.allclose(x, u @ cs @ vdh)
     True
+
+    References
+    ----------
+    .. [1] : Brian D. Sutton. Computing the complete CS decomposition. Numer.
+           Algorithms, 50(1):33-65, 2009.
 
     """
 

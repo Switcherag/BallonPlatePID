@@ -69,9 +69,8 @@ extern "C" {
 #define ASYNC           56
 #define TYPE_IGNORE     57
 #define TYPE_COMMENT    58
-#define SOFT_KEYWORD    59
-#define ERRORTOKEN      60
-#define N_TOKENS        64
+#define ERRORTOKEN      59
+#define N_TOKENS        63
 #define NT_OFFSET       256
 
 /* Special definitions for cooperation with parser */
@@ -79,10 +78,6 @@ extern "C" {
 #define ISTERMINAL(x)           ((x) < NT_OFFSET)
 #define ISNONTERMINAL(x)        ((x) >= NT_OFFSET)
 #define ISEOF(x)                ((x) == ENDMARKER)
-#define ISWHITESPACE(x)         ((x) == ENDMARKER || \
-                                 (x) == NEWLINE   || \
-                                 (x) == INDENT    || \
-                                 (x) == DEDENT)
 
 
 PyAPI_DATA(const char * const) _PyParser_TokenNames[]; /* Token names */

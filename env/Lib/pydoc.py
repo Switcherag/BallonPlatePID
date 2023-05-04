@@ -23,7 +23,7 @@ Run "pydoc -p <port>" to start an HTTP server on the given port on the
 local machine.  Port number 0 can be used to get an arbitrary unused port.
 
 Run "pydoc -b" to start an HTTP server on an arbitrary unused port and
-open a web browser to interactively browse documentation.  Combine with
+open a Web browser to interactively browse documentation.  Combine with
 the -n and -p options to control the hostname and port used.
 
 Run "pydoc -w <name>" to write out the HTML documentation for a module
@@ -69,7 +69,6 @@ import sys
 import sysconfig
 import time
 import tokenize
-import types
 import urllib.parse
 import warnings
 from collections import deque
@@ -91,104 +90,9 @@ def pathdirs():
             normdirs.append(normdir)
     return dirs
 
-def _isclass(object):
-    return inspect.isclass(object) and not isinstance(object, types.GenericAlias)
-
-def _findclass(func):
-    cls = sys.modules.get(func.__module__)
-    if cls is None:
-        return None
-    for name in func.__qualname__.split('.')[:-1]:
-        cls = getattr(cls, name)
-    if not _isclass(cls):
-        return None
-    return cls
-
-def _finddoc(obj):
-    if inspect.ismethod(obj):
-        name = obj.__func__.__name__
-        self = obj.__self__
-        if (_isclass(self) and
-            getattr(getattr(self, name, None), '__func__') is obj.__func__):
-            # classmethod
-            cls = self
-        else:
-            cls = self.__class__
-    elif inspect.isfunction(obj):
-        name = obj.__name__
-        cls = _findclass(obj)
-        if cls is None or getattr(cls, name) is not obj:
-            return None
-    elif inspect.isbuiltin(obj):
-        name = obj.__name__
-        self = obj.__self__
-        if (_isclass(self) and
-            self.__qualname__ + '.' + name == obj.__qualname__):
-            # classmethod
-            cls = self
-        else:
-            cls = self.__class__
-    # Should be tested before isdatadescriptor().
-    elif isinstance(obj, property):
-        func = obj.fget
-        name = func.__name__
-        cls = _findclass(func)
-        if cls is None or getattr(cls, name) is not obj:
-            return None
-    elif inspect.ismethoddescriptor(obj) or inspect.isdatadescriptor(obj):
-        name = obj.__name__
-        cls = obj.__objclass__
-        if getattr(cls, name) is not obj:
-            return None
-        if inspect.ismemberdescriptor(obj):
-            slots = getattr(cls, '__slots__', None)
-            if isinstance(slots, dict) and name in slots:
-                return slots[name]
-    else:
-        return None
-    for base in cls.__mro__:
-        try:
-            doc = _getowndoc(getattr(base, name))
-        except AttributeError:
-            continue
-        if doc is not None:
-            return doc
-    return None
-
-def _getowndoc(obj):
-    """Get the documentation string for an object if it is not
-    inherited from its class."""
-    try:
-        doc = object.__getattribute__(obj, '__doc__')
-        if doc is None:
-            return None
-        if obj is not type:
-            typedoc = type(obj).__doc__
-            if isinstance(typedoc, str) and typedoc == doc:
-                return None
-        return doc
-    except AttributeError:
-        return None
-
-def _getdoc(object):
-    """Get the documentation string for an object.
-
-    All tabs are expanded to spaces.  To clean up docstrings that are
-    indented to line up with blocks of code, any whitespace than can be
-    uniformly removed from the second line onwards is removed."""
-    doc = _getowndoc(object)
-    if doc is None:
-        try:
-            doc = _finddoc(object)
-        except (AttributeError, TypeError):
-            return None
-    if not isinstance(doc, str):
-        return None
-    return inspect.cleandoc(doc)
-
 def getdoc(object):
     """Get the doc string or comments for an object."""
-    result = _getdoc(object) or inspect.getcomments(object)
+    result = inspect.getdoc(object) or inspect.getcomments(object)
     return result and re.sub('^ *\n', '', result.rstrip()) or ''
 
 def splitdoc(doc):
@@ -209,7 +113,7 @@ def classname(object, modname):
 
 def isdata(object):
     """Check if an object is of a type that probably means it's data."""
-    return not (inspect.ismodule(object) or _isclass(object) or
+    return not (inspect.ismodule(object) or inspect.isclass(object) or
                 inspect.isroutine(object) or inspect.isframe(object) or
                 inspect.istraceback(object) or inspect.iscode(object))
 
@@ -474,7 +378,7 @@ class Doc:
         # by lacking a __name__ attribute) and an instance.
         try:
             if inspect.ismodule(object): return self.docmodule(*args)
-            if _isclass(object): return self.docclass(*args)
+            if inspect.isclass(object): return self.docclass(*args)
             if inspect.isroutine(object): return self.docroutine(*args)
         except AttributeError:
             pass
@@ -508,7 +412,7 @@ class Doc:
               not file.startswith(os.path.join(basedir, 'site-packages')))) and
             object.__name__ not in ('xml.etree', 'test.pydoc_mod')):
             if docloc.startswith(("http://", "https://")):
-                docloc = "{}/{}.html".format(docloc.rstrip("/"), object.__name__.lower())
+                docloc = "%s/%s" % (docloc.rstrip("/"), object.__name__.lower())
             else:
                 docloc = os.path.join(docloc, object.__name__.lower() + ".html")
         else:
@@ -680,7 +584,7 @@ class HTMLDoc(Doc):
         escape = escape or self.escape
         results = []
         here = 0
-        pattern = re.compile(r'\b((http|https|ftp)://\S+[\w/]|'
+        pattern = re.compile(r'\b((http|ftp)://\S+[\w/]|'
                                 r'RFC[- ]?(\d+)|'
                                 r'PEP[- ]?(\d+)|'
                                 r'(self\.)?(\w+))')
@@ -698,7 +602,7 @@ class HTMLDoc(Doc):
                 url = 'http://www.rfc-editor.org/rfc/rfc%d.txt' % int(rfc)
                 results.append('<a href="%s">%s</a>' % (url, escape(all)))
             elif pep:
-                url = 'https://www.python.org/dev/peps/pep-%04d/' % int(pep)
+                url = 'http://www.python.org/dev/peps/pep-%04d/' % int(pep)
                 results.append('<a href="%s">%s</a>' % (url, escape(all)))
             elif selfdot:
                 # Create a link for methods like 'self.method(...)'
@@ -779,7 +683,7 @@ class HTMLDoc(Doc):
         modules = inspect.getmembers(object, inspect.ismodule)
 
         classes, cdict = [], {}
-        for key, value in inspect.getmembers(object, _isclass):
+        for key, value in inspect.getmembers(object, inspect.isclass):
             # if __all__ exists, believe it.  Otherwise use old heuristic.
             if (all is not None or
                 (inspect.getmodule(value) or object) is object):
@@ -921,8 +825,11 @@ class HTMLDoc(Doc):
                 push(msg)
                 for name, kind, homecls, value in ok:
                     base = self.docother(getattr(object, name), name, mod)
-                    doc = getdoc(value)
-                    if not doc:
+                    if callable(value) or inspect.isdatadescriptor(value):
+                        doc = getattr(value, "__doc__", None)
+                    else:
+                        doc = None
+                    if doc is None:
                         push('<dl><dt>%s</dl>\n' % base)
                     else:
                         doc = self.markup(getdoc(value), self.preformat,
@@ -1221,7 +1128,7 @@ location listed above.
             result = result + self.section('DESCRIPTION', desc)
 
         classes = []
-        for key, value in inspect.getmembers(object, _isclass):
+        for key, value in inspect.getmembers(object, inspect.isclass):
             # if __all__ exists, believe it.  Otherwise use old heuristic.
             if (all is not None
                 or (inspect.getmodule(value) or object) is object):
@@ -1402,7 +1309,10 @@ location listed above.
                 hr.maybe()
                 push(msg)
                 for name, kind, homecls, value in ok:
-                    doc = getdoc(value)
+                    if callable(value) or inspect.isdatadescriptor(value):
+                        doc = getdoc(value)
+                    else:
+                        doc = None
                     try:
                         obj = getattr(object, name)
                     except AttributeError:
@@ -1538,10 +1448,8 @@ location listed above.
             chop = maxlen - len(line)
             if chop < 0: repr = repr[:chop] + '...'
         line = (name and self.bold(name) + ' = ' or '') + repr
-        if not doc:
-            doc = getdoc(object)
-        if doc:
-            line += '\n' + self.indent(str(doc)) + '\n'
+        if doc is not None:
+            line += '\n' + self.indent(str(doc))
         return line
 
 class _PlainTextDoc(TextDoc):
@@ -1598,10 +1506,9 @@ def plain(text):
 def pipepager(text, cmd):
     """Page through text by feeding it to another program."""
     import subprocess
-    proc = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE,
-                            errors='backslashreplace')
+    proc = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE)
     try:
-        with proc.stdin as pipe:
+        with io.TextIOWrapper(proc.stdin, errors='backslashreplace') as pipe:
             try:
                 pipe.write(text)
             except KeyboardInterrupt:
@@ -1622,14 +1529,13 @@ def pipepager(text, cmd):
 def tempfilepager(text, cmd):
     """Page through text by invoking a program on a temporary file."""
     import tempfile
-    with tempfile.TemporaryDirectory() as tempdir:
-        filename = os.path.join(tempdir, 'pydoc.out')
-        with open(filename, 'w', errors='backslashreplace',
-                  encoding=os.device_encoding(0) if
-                  sys.platform == 'win32' else None
-                  ) as file:
-            file.write(text)
+    filename = tempfile.mktemp()
+    with open(filename, 'w', errors='backslashreplace') as file:
+        file.write(text)
+    try:
         os.system(cmd + ' "' + filename + '"')
+    finally:
+        os.unlink(filename)
 
 def _escape_stdout(text):
     # Escape non-encodable characters to avoid encoding errors later
@@ -1703,7 +1609,7 @@ def describe(thing):
         return 'member descriptor %s.%s.%s' % (
             thing.__objclass__.__module__, thing.__objclass__.__name__,
             thing.__name__)
-    if _isclass(thing):
+    if inspect.isclass(thing):
         return 'class ' + thing.__name__
     if inspect.isfunction(thing):
         return 'function ' + thing.__name__
@@ -1764,17 +1670,13 @@ def render_doc(thing, title='Python Library Documentation: %s', forceload=0,
         desc += ' in module ' + module.__name__
 
     if not (inspect.ismodule(object) or
-              _isclass(object) or
+              inspect.isclass(object) or
               inspect.isroutine(object) or
-              inspect.isdatadescriptor(object) or
-              _getdoc(object)):
+              inspect.isdatadescriptor(object)):
         # If the passed object is a piece of data or an instance,
         # document its available methods instead of its value.
-        if hasattr(object, '__origin__'):
-            object = object.__origin__
-        else:
-            object = type(object)
-            desc += ' object'
+        object = type(object)
+        desc += ' object'
     return title % desc + '\n\n' + renderer.document(object, name)
 
 def doc(thing, title='Python Library Documentation: %s', forceload=0,
@@ -2070,7 +1972,7 @@ has the same effect as typing a particular string at the help> prompt.
 Welcome to Python {0}'s help utility!
 
 If this is your first time using Python, you should definitely check out
-the tutorial on the internet at https://docs.python.org/{0}/tutorial/.
+the tutorial on the Internet at https://docs.python.org/{0}/tutorial/.
 
 Enter the name of any module, keyword, or topic to get help on writing
 Python programs and using Python modules.  To quit this help utility and
@@ -2284,13 +2186,13 @@ def apropos(key):
         warnings.filterwarnings('ignore') # ignore problems during import
         ModuleScanner().run(callback, key, onerror=onerror)
 
-# --------------------------------------- enhanced web browser interface
+# --------------------------------------- enhanced Web browser interface
 
 def _start_server(urlhandler, hostname, port):
     """Start an HTTP server thread on a specific port.
 
     Start an HTML/text server thread, so HTML or text documents can be
-    browsed dynamically and interactively with a web browser.  Example use:
+    browsed dynamically and interactively with a Web browser.  Example use:
 
         >>> import time
         >>> import pydoc
@@ -2676,7 +2578,7 @@ def _url_handler(url, content_type="text/html"):
 
 
 def browse(port=0, *, open_browser=True, hostname='localhost'):
-    """Start the enhanced pydoc web server and open a web browser.
+    """Start the enhanced pydoc Web server and open a Web browser.
 
     Use port '0' to start the server on an arbitrary port.
     Set open_browser to False to suppress opening a browser.
@@ -2828,7 +2730,7 @@ def cli():
     number 0 can be used to get an arbitrary unused port.
 
 {cmd} -b
-    Start an HTTP server on an arbitrary unused port and open a web browser
+    Start an HTTP server on an arbitrary unused port and open a Web browser
     to interactively browse documentation.  This option can be used in
     combination with -n and/or -p.
 

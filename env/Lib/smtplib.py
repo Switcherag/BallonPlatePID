@@ -168,7 +168,7 @@ def quotedata(data):
     """Quote data for email.
 
     Double leading '.', and change Unix newline '\\n', or Mac '\\r' into
-    internet CRLF end-of-line.
+    Internet CRLF end-of-line.
     """
     return re.sub(r'(?m)^\.', '..',
         re.sub(r'(?:\r\n|\n|\r(?!\n))', CRLF, data))
@@ -223,7 +223,7 @@ class SMTP:
     helo_resp = None
     ehlo_msg = "ehlo"
     ehlo_resp = None
-    does_esmtp = False
+    does_esmtp = 0
     default_port = SMTP_PORT
 
     def __init__(self, host='', port=0, local_hostname=None,
@@ -305,8 +305,6 @@ class SMTP:
     def _get_socket(self, host, port, timeout):
         # This makes it simpler for SMTP_SSL to use the SMTP connect code
         # and just alter the socket connection bit.
-        if timeout is not None and not timeout:
-            raise ValueError('Non-blocking socket (timeout=0) is not supported')
         if self.debuglevel > 0:
             self._print_debug('connect: to', (host, port), self.source_address)
         return socket.create_connection((host, port), timeout,
@@ -367,15 +365,10 @@ class SMTP:
     def putcmd(self, cmd, args=""):
         """Send a command to the server."""
         if args == "":
-            s = cmd
+            str = '%s%s' % (cmd, CRLF)
         else:
-            s = f'{cmd} {args}'
-        if '\r' in s or '\n' in s:
-            s = s.replace('\n', '\\n').replace('\r', '\\r')
-            raise ValueError(
-                f'command and arguments contain prohibited newline characters: {s}'
-            )
-        self.send(f'{s}{CRLF}')
+            str = '%s %s%s' % (cmd, args, CRLF)
+        self.send(str)
 
     def getreply(self):
         """Get a reply from the server.
@@ -459,7 +452,7 @@ class SMTP:
         self.ehlo_resp = msg
         if code != 250:
             return (code, msg)
-        self.does_esmtp = True
+        self.does_esmtp = 1
         #parse the ehlo response -ddm
         assert isinstance(self.ehlo_resp, bytes), repr(self.ehlo_resp)
         resp = self.ehlo_resp.decode("latin-1").split('\n')
@@ -797,7 +790,7 @@ class SMTP:
             self.helo_resp = None
             self.ehlo_resp = None
             self.esmtp_features = {}
-            self.does_esmtp = False
+            self.does_esmtp = 0
         else:
             # RFC 3207:
             # 501 Syntax error (no parameters allowed)
@@ -1048,12 +1041,13 @@ if _have_ssl:
                                                      keyfile=keyfile)
             self.context = context
             SMTP.__init__(self, host, port, local_hostname, timeout,
-                          source_address)
+                    source_address)
 
         def _get_socket(self, host, port, timeout):
             if self.debuglevel > 0:
                 self._print_debug('connect:', (host, port))
-            new_socket = super()._get_socket(host, port, timeout)
+            new_socket = socket.create_connection((host, port), timeout,
+                    self.source_address)
             new_socket = self.context.wrap_socket(new_socket,
                                                   server_hostname=self._host)
             return new_socket
@@ -1082,24 +1076,19 @@ class LMTP(SMTP):
     ehlo_msg = "lhlo"
 
     def __init__(self, host='', port=LMTP_PORT, local_hostname=None,
-                 source_address=None, timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
+            source_address=None):
         """Initialize a new instance."""
-        super().__init__(host, port, local_hostname=local_hostname,
-                         source_address=source_address, timeout=timeout)
+        SMTP.__init__(self, host, port, local_hostname=local_hostname,
+                      source_address=source_address)
 
     def connect(self, host='localhost', port=0, source_address=None):
         """Connect to the LMTP daemon, on either a Unix or a TCP socket."""
         if host[0] != '/':
-            return super().connect(host, port, source_address=source_address)
-
-        if self.timeout is not None and not self.timeout:
-            raise ValueError('Non-blocking socket (timeout=0) is not supported')
+            return SMTP.connect(self, host, port, source_address=source_address)
 
         # Handle Unix-domain sockets.
         try:
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            if self.timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
-                self.sock.settimeout(self.timeout)
             self.file = None
             self.sock.connect(host)
         except OSError:

@@ -9,12 +9,6 @@ import os
 import string
 import sys
 
-# Modified keyword list is used in fetch_completions.
-completion_kwds = [s for s in keyword.kwlist
-                     if s not in {'True', 'False', 'None'}]  # In builtins.
-completion_kwds.extend(('match', 'case'))  # Context keywords.
-completion_kwds.sort()
-
 # Two types of completions; defined here for autocomplete_w import below.
 ATTRS, FILES = 0, 1
 from idlelib import autocomplete_w
@@ -37,11 +31,10 @@ TRIGGERS = f".{SEPS}"
 
 class AutoComplete:
 
-    def __init__(self, editwin=None, tags=None):
+    def __init__(self, editwin=None):
         self.editwin = editwin
         if editwin is not None:   # not in subprocess or no-gui test
             self.text = editwin.text
-        self.tags = tags
         self.autocompletewindow = None
         # id of delayed call, and the index of the text insert when
         # the delayed call was issued. If _delayed_completion_id is
@@ -55,7 +48,7 @@ class AutoComplete:
             "extensions", "AutoComplete", "popupwait", type="int", default=0)
 
     def _make_autocomplete_window(self):  # Makes mocking easier.
-        return autocomplete_w.AutoCompleteWindow(self.text, tags=self.tags)
+        return autocomplete_w.AutoCompleteWindow(self.text)
 
     def _remove_autocomplete_window(self, event=None):
         if self.autocompletewindow:
@@ -183,7 +176,9 @@ class AutoComplete:
                     namespace = {**__main__.__builtins__.__dict__,
                                  **__main__.__dict__}
                     bigl = eval("dir()", namespace)
-                    bigl.extend(completion_kwds)
+                    kwds = (s for s in keyword.kwlist
+                            if s not in {'True', 'False', 'None'})
+                    bigl.extend(kwds)
                     bigl.sort()
                     if "__all__" in bigl:
                         smalll = sorted(eval("__all__", namespace))

@@ -1,7 +1,6 @@
 import unittest
 import tkinter
 from test import support
-from test.support import os_helper
 from tkinter.test.support import AbstractTkTest, AbstractDefaultRootTest, requires_tcl
 
 support.requires('gui')
@@ -78,7 +77,6 @@ class BitmapImageTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(image.height(), 16)
         self.assertIn('::img::test', self.root.image_names())
         del image
-        support.gc_collect()  # For PyPy or other GCs.
         self.assertNotIn('::img::test', self.root.image_names())
 
     def test_create_from_data(self):
@@ -93,7 +91,6 @@ class BitmapImageTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(image.height(), 16)
         self.assertIn('::img::test', self.root.image_names())
         del image
-        support.gc_collect()  # For PyPy or other GCs.
         self.assertNotIn('::img::test', self.root.image_names())
 
     def assertEqualStrList(self, actual, expected):
@@ -174,7 +171,6 @@ class PhotoImageTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(image['file'], testfile)
         self.assertIn('::img::test', self.root.image_names())
         del image
-        support.gc_collect()  # For PyPy or other GCs.
         self.assertNotIn('::img::test', self.root.image_names())
 
     def check_create_from_data(self, ext):
@@ -192,7 +188,6 @@ class PhotoImageTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(image['file'], '')
         self.assertIn('::img::test', self.root.image_names())
         del image
-        support.gc_collect()  # For PyPy or other GCs.
         self.assertNotIn('::img::test', self.root.image_names())
 
     def test_create_from_ppm_file(self):
@@ -342,12 +337,12 @@ class PhotoImageTest(AbstractTkTest, unittest.TestCase):
 
     def test_write(self):
         image = self.create()
-        self.addCleanup(os_helper.unlink, os_helper.TESTFN)
+        self.addCleanup(support.unlink, support.TESTFN)
 
-        image.write(os_helper.TESTFN)
+        image.write(support.TESTFN)
         image2 = tkinter.PhotoImage('::img::test2', master=self.root,
                                     format='ppm',
-                                    file=os_helper.TESTFN)
+                                    file=support.TESTFN)
         self.assertEqual(str(image2), '::img::test2')
         self.assertEqual(image2.type(), 'photo')
         self.assertEqual(image2.width(), 16)
@@ -355,10 +350,10 @@ class PhotoImageTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(image2.get(0, 0), image.get(0, 0))
         self.assertEqual(image2.get(15, 8), image.get(15, 8))
 
-        image.write(os_helper.TESTFN, format='gif', from_coords=(4, 6, 6, 9))
+        image.write(support.TESTFN, format='gif', from_coords=(4, 6, 6, 9))
         image3 = tkinter.PhotoImage('::img::test3', master=self.root,
                                     format='gif',
-                                    file=os_helper.TESTFN)
+                                    file=support.TESTFN)
         self.assertEqual(str(image3), '::img::test3')
         self.assertEqual(image3.type(), 'photo')
         self.assertEqual(image3.width(), 2)
@@ -376,5 +371,7 @@ class PhotoImageTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(image.transparency_get(4, 6), False)
 
 
+tests_gui = (MiscTest, DefaultRootTest, BitmapImageTest, PhotoImageTest,)
+
 if __name__ == "__main__":
-    unittest.main()
+    support.run_unittest(*tests_gui)
