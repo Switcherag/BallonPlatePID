@@ -76,7 +76,7 @@ class Simulation:
             return self.MyBall.pos[-1],time
 
     def quadratic_error(self):
-        error = np.sum((self.MyBall.pos - self.target)**2)*self.timestep
+        error = np.sum((self.MyBall.pos - self.target)**2)*self.timestep*1000
         return error
     def response_time(self):
         #return the time when the ball stay between 0.95 and 1.05 of the target
@@ -223,50 +223,57 @@ class Simulation:
         # Show the plot
         plt.show()
 
-    def heatmap_target(self,a,b,target,resolution=100):
+    def heatmap_target(self,a,b,targets,targets_names,resolution=100):
         
         Kp_values = np.linspace(a, b, num=resolution)
         Kd_values = np.linspace(a, b, num=resolution)
         Ki_values = [0,0.01,0.05,.1,.5,1,5,10]
 
+        #define targets
         # initialisation d'un tableau pour stocker les valeurs de la fonction de coût
-        quadratic_error = np.zeros((len(Kp_values), len(Kd_values),len(Ki_values)))
+        quadratic_error = np.zeros((len(targets),len(Ki_values),len(Kp_values),len(Kd_values) ))
 
         # Create figure and subplots
-        fig, axs = plt.subplots(ncols=len(Ki_values),figsize=(20,4))
-        #plot each subplot in row instead of columns
-        a = a
-        b = b
-
-        # calcul des valeurs correspondantes de la fonction de coût pour chaque paire de valeurs de Kp et Kd
-        self.target = target
-        for i, Kp in enumerate(Kp_values):
-            
-            #add loading bar \r
-            print(f"iteration {i+1}/{len(Kp_values)}", end="\r")
-            for j, Kd in enumerate(Kd_values):
-                for k, Ki in enumerate(Ki_values):
-                    self.MyPID.kp = Kp
-                    self.MyPID.kd = Kd
-                    self.MyPID.ki = Ki
-                    self.euler_integration()
-                    
-                    quadratic_error[i,j,k] = self.quadratic_error()
+        fig, axs = plt.subplots(len(targets)+1,len(Ki_values), figsize=(20, 20), facecolor='w', edgecolor='k')
 
         quadratic_min = 0
-        quadratic_max = 30      
-        print("Quadratic_min = ", np.min(quadratic_error))
-        # Plot heatmaps and colorbars
+        quadratic_max = 30    
+        for t, target in enumerate(targets):
+            self.target = target
+            for i, Ki in enumerate(Ki_values):
+                #add loading bar \r
+                print(f"iteration {i+1}/{len(Ki_values)}", end="\r")
+                
+                for j, Kp in enumerate(Kp_values):
+                    for k, Kd in enumerate(Kd_values):
+                        self.MyPID.kp = Kp
+                        self.MyPID.kd = Kd
+                        self.MyPID.ki = Ki
+                        self.euler_integration()
+                        
+                        quadratic_error[t,i,j,k] = self.quadratic_error()
+                    axs[t][i].imshow(quadratic_error[t][i], cmap='rainbow', aspect='auto',origin='lower',extent=[a,b,a,b], vmin=quadratic_min, vmax=quadratic_max,interpolation='none')            
+                axs[0][i].set_title("Ki = " + str(Ki_values[i]))
+                #set a title to the  figure
+                # label the axis on the other side while keeping the other one left
+                axs[t][0].set_ylabel("Kd target = " + targets_names[t])
+                axs[t][i].set_xlabel("Kp")
+            
+             
+            print("Quadratic_min = ", np.min(quadratic_error[t,:,:,:]))
+            
+                
+        
+      
+        # last plot with the sum of the quadratic error
         for k in range(len(Ki_values)):
-            axs[k].imshow(quadratic_error[:,:,k], cmap='rainbow', aspect='auto',origin='lower',extent=[a,b,a,b], vmin=quadratic_min, vmax=quadratic_max,interpolation='none')            
-            axs[k].set_title("Ki = " + str(Ki_values[k]))
+            axs[-1][k].imshow(np.max(quadratic_error[:,k,:,:],axis=0), cmap='rainbow', aspect='auto',origin='lower',extent=[a,b,a,b], vmin=quadratic_min, vmax=quadratic_max,interpolation='none')
             #set a title to the  figure
-            fig.suptitle("Quadratic error")
             # label the axis on the other side while keeping the other one left
-            axs[0].set_ylabel("Kd")
-            axs[k].set_xlabel("Kp")
+            axs[-1][0].set_ylabel("Kd for all target")
+            axs[-1][k].set_xlabel("Kp")
          
-        # Show the plot
+
         plt.show()
     def reset(self):
         self.MyBall.reset()
