@@ -76,7 +76,7 @@ class Simulation:
             return self.MyBall.pos[-1],time
 
     def quadratic_error(self):
-        error = np.sum((self.MyBall.pos - self.target)**2)
+        error = np.sum((self.MyBall.pos - self.target)**2)*self.timestep
         return error
     def response_time(self):
         #return the time when the ball stay between 0.95 and 1.05 of the target
@@ -227,7 +227,7 @@ class Simulation:
         
         Kp_values = np.linspace(a, b, num=resolution)
         Kd_values = np.linspace(a, b, num=resolution)
-        Ki_values = [0,0.01,0.05,.1,.5,1]
+        Ki_values = [0,0.01,0.05,.1,.5,1,5,10]
 
         # initialisation d'un tableau pour stocker les valeurs de la fonction de coût
         quadratic_error = np.zeros((len(Kp_values), len(Kd_values),len(Ki_values)))
@@ -255,10 +255,10 @@ class Simulation:
 
         quadratic_min = 0
         quadratic_max = 30      
-        print("Quadratic_min = ", quadratic_min)
+        print("Quadratic_min = ", np.min(quadratic_error))
         # Plot heatmaps and colorbars
         for k in range(len(Ki_values)):
-            axs[k].imshow(quadratic_error[:,:,k], cmap='rainbow', aspect='auto',origin='lower',extent=[a,b,a,b], vmin=quadratic_min, vmax=quadratic_max)            
+            axs[k].imshow(quadratic_error[:,:,k], cmap='rainbow', aspect='auto',origin='lower',extent=[a,b,a,b], vmin=quadratic_min, vmax=quadratic_max,interpolation='none')            
             axs[k].set_title("Ki = " + str(Ki_values[k]))
             #set a title to the  figure
             fig.suptitle("Quadratic error")
