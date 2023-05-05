@@ -8,9 +8,9 @@ import time as tm
 import threading
 from detect import *
 
-Kp = 15
-Ki = 1
-Kd = 6
+Kp = 8
+Ki = 0
+Kd = 1.5
 
 
 Pingpong_Ball = Ball()
