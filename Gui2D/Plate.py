@@ -3,7 +3,7 @@ import numpy as np
 class Plate:
     def __init__(self):
         self.angle_pos_max = np.deg2rad(20)
-        self.angle_vel_max = np.deg2rad(40)
+        self.angle_vel_max = np.deg2rad(140)
         self.prev_angle = [0,0]
         
     def move(self,new_angle, timestep):

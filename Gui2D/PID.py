@@ -12,7 +12,7 @@ class PID:
         self.integral = [[0,0]]
         
     def update_angle(self, target,position):
-        history = 10
+        history = 100
        
         error = (target - position)
         self.integral += [error/history]
